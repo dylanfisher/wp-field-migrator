@@ -1,0 +1,63 @@
+name: Release on Version Change
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect version change
+        id: version
+        run: |
+          plugin_file="wp-field-migrator.php"
+
+          current=$(grep -m1 '^ \* Version:' "$plugin_file" | awk -F': ' '{print $2}')
+          current=$(echo "$current" | tr -d '\r' | xargs)
+          current=${current#v}
+          current=$(echo "$current" | tr -cd '0-9A-Za-z._-')
+          if [ -z "$current" ]; then
+            echo "No Version header found."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          previous=$(git show "HEAD~1:$plugin_file" 2>/dev/null | grep -m1 '^ \* Version:' | awk -F': ' '{print $2}')
+          previous=$(echo "$previous" | tr -d '\r' | xargs)
+          previous=${previous#v}
+          previous=$(echo "$previous" | tr -cd '0-9A-Za-z._-')
+          if [ -z "$previous" ] || [ "$current" = "$previous" ]; then
+            echo "No version change detected."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: tag
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          if git tag -l "v${{ steps.version.outputs.version }}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.changed == 'true' && steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
