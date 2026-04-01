@@ -3,7 +3,7 @@
  * Plugin Name: Field Migrator
  * Plugin URI:  https://example.com
  * Description: Preview and migrate field data between fields (including ACF fields) on WordPress posts.
- * Version:     0.1.0
+ * Version:     0.1.1
  * Author:      Walters
  * License:     GPL-2.0-or-later
  * Text Domain: wp-field-migrator
